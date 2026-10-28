@@ -4,15 +4,13 @@
 
 Indeksene hentes fra Navs G-API (g.nav.no) og SSBs statistikkbank (PxWebApi v2, tabell 03013 for KPI og 09786 for påløpt årslønn). Repoet oppdaterer tallene automatisk den 15. hver måned. Begge pakkene har med seg tallene, så de virker også på servere uten nett.
 
-> **Til vedlikeholder:** Bytt ut `BRUKER` i denne filen med GitHub-brukernavnet eller organisasjonen repoet ligger under.
-
 ## Installasjon
 
 **R** (ingen kompilering, Rtools trengs ikke):
 
 ```r
 install.packages("remotes")
-remotes::install_github("BRUKER/fafokr", subdir = "r/fafokr")
+remotes::install_github("Forskningsstiftelsen-Fafo/fafokr", subdir = "r/fafokr")
 library(fafokr)
 fk_kilder()   # viser hva som er hentet og når
 ```
@@ -20,7 +18,7 @@ fk_kilder()   # viser hva som er hentet og når
 **Stata** (versjon 14 eller nyere):
 
 ```stata
-net install fafokr, from("https://raw.githubusercontent.com/BRUKER/fafokr/main/stata") replace
+net install fafokr, from("https://raw.githubusercontent.com/Forskningsstiftelsen-Fafo/fafokr/main/stata") replace
 help fafokr
 fafokr sources
 ```
@@ -34,7 +32,7 @@ En ny installasjon gir alltid de nyeste tallene i repoet.
 **Stata:**
 
 ```stata
-fafokr update, from("https://raw.githubusercontent.com/BRUKER/fafokr/main/stata")
+fafokr update, from("https://raw.githubusercontent.com/Forskningsstiftelsen-Fafo/fafokr/main/stata")
 ```
 
 Kommandoen kontrollerer filene og legger dem i PERSONAL-mappen. Stata bruker dem foran tallene fra installasjonen så lenge de er nyere.
