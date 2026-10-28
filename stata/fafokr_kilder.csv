@@ -1,0 +1,4 @@
+"serie","beskrivelse","kilde","tabell","url","basis","hentet","forste_aar","siste_aar"
+"g","Grunnbeløpet i folketrygden (G), per 1. mai og gjennomsnitt per år","Nav, g.nav.no",,"https://raw.githubusercontent.com/navikt/g/main/grunnbel%C3%B8p.json","kroner","2026-10-28",1967,2026
+"kpi","Konsumprisindeksen (2015=100), årsgjennomsnitt av månedstall","SSB","03013",,"2015=100",,,
+"lonn","Årslønn, påløpt, alle lønnstakere, indeks (2010=100)","SSB, nasjonalregnskapet","09786",,"2010=100",,,

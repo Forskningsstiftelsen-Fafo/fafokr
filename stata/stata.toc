@@ -1,0 +1,3 @@
+v 3
+d Fafo-pakker for Stata
+p fafokr Kroner, G og indekser (KPI, lønnsindeks, G)

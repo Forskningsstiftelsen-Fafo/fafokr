@@ -1,0 +1,19 @@
+Package: fafokr
+Type: Package
+Title: Kroner, G og indekser i Fafo-stil
+Version: 0.1.0
+Authors@R: person("Herman", "Kruse", email = "herman@fafo.no", role = c("aut", "cre"))
+Description: Gjør om beløp til faste kroner med konsumprisindeksen (KPI) eller
+    lønnsindeksen, til G-enheter eller G-justerte kroner med grunnbeløpet i
+    folketrygden. Indeksene hentes fra Navs G-API (g.nav.no) og SSBs
+    statistikkbank (PxWebApi v2). Pakken har med seg et øyeblikksbilde av
+    tabellene, slik at den virker uten nett, og fk_oppdater() henter nye tall.
+    Hver variabel får en status (løpende kroner, faste kroner med basisår og
+    deflator, eller G-enheter) som styrer omregningen.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.0)
+Imports: jsonlite, stats, tools, utils
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0
