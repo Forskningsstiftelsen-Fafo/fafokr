@@ -1,0 +1,35 @@
+# Henter nye tall for G, KPI og lønnsindeks én gang i måneden og legger dem
+# inn i både R- og Stata-pakken. Kan også startes manuelt (workflow_dispatch).
+name: Oppdater indekser
+
+on:
+  schedule:
+    - cron: "0 6 15 * *"   # den 15. hver måned kl. 06 UTC, etter at KPI er publisert
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  oppdater:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+      - name: Installer jsonlite
+        run: Rscript -e 'install.packages("jsonlite", repos = "https://cloud.r-project.org")'
+      - name: Hent indekser
+        # warn = 2 gjør advarsler om til feil: feiler én henting, stopper jobben
+        # uten å skrive noe, og GitHub sender e-post.
+        working-directory: r/fafokr
+        run: Rscript -e 'options(warn = 2); source("data-raw/oppdater_indekser.R", encoding = "UTF-8")'
+      - name: Lagre endringer
+        run: |
+          if git diff --quiet; then
+            echo "Ingen nye tall."
+          else
+            git config user.name "fafokr-bot"
+            git config user.email "fafokr-bot@users.noreply.github.com"
+            git commit -am "Oppdaterte indekser $(date +%Y-%m-%d)"
+            git push
+          fi
