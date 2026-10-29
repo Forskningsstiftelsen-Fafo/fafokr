@@ -1,4 +1,4 @@
-# Henter nye tall for G, KPI og lønnsindeks én gang i måneden og legger dem
+# Henter nye tall for G, KPI, lønnsindeks og valutakurser én gang i måneden og legger dem
 # inn i både R- og Stata-pakken. Kan også startes manuelt (workflow_dispatch).
 name: Oppdater indekser
 
@@ -9,6 +9,11 @@ on:
 
 permissions:
   contents: write
+
+# Aldri to kjøringer samtidig
+concurrency:
+  group: oppdater-indekser
+  cancel-in-progress: false
 
 jobs:
   oppdater:
@@ -31,5 +36,7 @@ jobs:
             git config user.name "fafokr-bot"
             git config user.email "fafokr-bot@users.noreply.github.com"
             git commit -am "Oppdaterte indekser $(date +%Y-%m-%d)"
+            # Ta med endringer som har kommet på main mens jobben kjørte
+            git pull --rebase origin main
             git push
           fi
