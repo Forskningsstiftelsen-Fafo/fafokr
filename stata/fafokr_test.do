@@ -79,6 +79,12 @@ quietly count if !missing(kpi)
 local harkpi = r(N) > 0
 quietly count if !missing(lonn)
 local harlonn = r(N) > 0
+quietly count if !missing(usd) & !missing(eur) & aar == 2022
+local harvaluta = r(N) > 0
+if `harvaluta' {
+    quietly summarize usd if aar == 2022, meanonly
+    local usd22 = r(mean)
+}
 restore
 
 if `harkpi' {
@@ -99,6 +105,24 @@ if `harlonn' {
     assert reldif(n_l_inntekt, inntekt) < 1e-10
 }
 else di as txt "Lønnsindeksen er ikke hentet ennå – hopper over lønnstestene."
+
+if `harvaluta' {
+    * Løpende kroner med årets kurs
+    fafokr convert inntekt, index(nominell) currency(usd) generate(usd_)
+    fafokr kurs aar, generate(usdkurs) currency(usd)
+    assert reldif(usd_inntekt, inntekt / usdkurs) < 1e-12
+    assert reldif(usdkurs, `usd22') < 1e-12 if aar == 2022
+    assert "`: char usd_inntekt[fafokr_valuta]'" == "usd"
+    * G-justerte kroner på 2022-nivå, deretter til USD med 2022-kursen
+    fafokr convert inntekt, index(g_snitt) to(2022) currency(usd) generate(gusd_)
+    assert reldif(gusd_inntekt, 2 * 109784 / `usd22') < 1e-12
+    * Feil: G-enheter, ukjent valuta og variabel som allerede er i valuta
+    rcof "fafokr convert inntekt, index(g_snitt) currency(usd) generate(x_)" == 198
+    rcof "fafokr convert inntekt, index(nominell) currency(sek) generate(x_)" == 198
+    rcof "fafokr convert usd_inntekt, index(nominell) generate(x_)" == 459
+    fafokr describe
+}
+else di as txt "Valutakursene er ikke hentet ennå – hopper over valutatestene."
 
 fafokr sources
 di as res _n "Alle fafokr-tester gikk gjennom."

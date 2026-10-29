@@ -33,7 +33,9 @@ fk_cache_mappe <- function() {
   k$forste_aar <- as.integer(k$forste_aar)
   k$siste_aar <- as.integer(k$siste_aar)
   ut$kilder <- k
-  for (s in c("g_snitt", "g_mai", "kpi", "lonn")) ut$aar[[s]] <- as.numeric(ut$aar[[s]])
+  for (s in c(.fk_indekser, .fk_valutaer)) {
+    ut$aar[[s]] <- if (is.null(ut$aar[[s]])) NA_real_ else as.numeric(ut$aar[[s]])
+  }
   ut$kpi_mnd$kpi <- as.numeric(ut$kpi_mnd$kpi)
   ut$g$fra_dato <- as.character(ut$g$fra_dato)
   ut$g$til_dato <- as.character(ut$g$til_dato)

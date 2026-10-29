@@ -2,7 +2,7 @@
 #
 # Kjøres av vedlikeholder (eller GitHub Actions) med internettilgang:
 #   Rscript r/fafokr/data-raw/oppdater_indekser.R
-# Skriptet henter G, KPI og lønnsindeks, kontrollerer tallene og skriver
+# Skriptet henter G, KPI, lønnsindeks og valutakurser, kontrollerer tallene og skriver
 # de samme fire CSV-filene til
 #   r/fafokr/inst/extdata/   (R-pakken)
 #   stata/                   (Stata-pakken)

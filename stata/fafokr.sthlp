@@ -1,10 +1,10 @@
 {smcl}
-{* *! version 0.1.0  28okt2026}{...}
+{* *! version 1.0.0  29okt2026}{...}
 {title:Tittel}
 
 {phang}
 {bf:fafokr} {hline 2} Kroner, G og indekser: faste kroner med KPI eller lønnsindeks,
-G-enheter og G-justerte kroner
+G-enheter, G-justerte kroner og valuta (USD, EUR)
 
 
 {title:Syntaks}
@@ -15,13 +15,16 @@ G-enheter og G-justerte kroner
 
 {p 8 16 2}
 {cmd:fafokr convert} {varlist}{cmd:,} {opt i:ndex(indeks)}
-[{opt t:o(#)} {opt gen:erate(prefiks)} {opt replace}]
+[{opt t:o(#)} {opt cur:rency(usd|eur)} {opt gen:erate(prefiks)} {opt replace}]
 
 {p 8 16 2}
 {cmd:fafokr describe} [{varlist}]
 
 {p 8 16 2}
 {cmd:fafokr g} {varname}{cmd:,} {opt gen:erate(newvar)} [{opt t:ype(snitt|mai|dato)}]
+
+{p 8 16 2}
+{cmd:fafokr kurs} {varname}{cmd:,} {opt gen:erate(newvar)} {opt cur:rency(usd|eur)}
 
 {p 8 16 2}
 {cmd:fafokr table} [{cmd:aar}|{cmd:g}|{cmd:kpi_mnd}|{cmd:kilder}] [{cmd:,} {opt clear}]
@@ -50,7 +53,8 @@ omregninger kan kjedes.
 
 {pstd}
 Indeksene kommer fra Navs G-API (g.nav.no) og SSBs statistikkbank (tabell 03013
-for KPI og 09786 for lønnsindeksen). Pakken har med seg et øyeblikksbilde av
+for KPI og 09786 for lønnsindeksen). Valutakursene er årsgjennomsnitt fra Norges
+Banks åpne API (datasettet EXR). Pakken har med seg et øyeblikksbilde av
 tabellene. {cmd:fafokr update} henter nyere filer fra en mappe eller URL der
 noen har lagt dem med R-funksjonen {cmd:fk_oppdater()}. Se
 {cmd:fafokr sources} for hentedatoer.
@@ -101,6 +105,14 @@ den opprinnelige deflatoren og regnes så om med {opt index()}. Beløp i år
 der indeksen mangler, får manglende verdi, og antallet vises.
 
 {phang}
+{opt currency(usd|eur)} regner resultatet om fra NOK til dollar eller euro med
+årsgjennomsnittet av Norges Banks kurs. Faste kroner (med {opt to()}) deles på
+kursen i {opt to()}-året, slik at realverdien beholdes. Løpende kroner
+({cmd:index(nominell)}) deles på kursen for hvert år. Valuta kan ikke kombineres
+med G-enheter, og en variabel som allerede er i valuta, kan ikke regnes om igjen.
+Merk at dette er markedskurser, ikke kjøpekraftsjusterte kurser (PPP).
+
+{phang}
 {opt generate(prefiks)} lager nye variabler med prefikset foran navnet.
 {opt replace} erstatter variablene. Én av dem må oppgis.
 
@@ -114,6 +126,13 @@ er {it:varname} et årstall. Med {cmd:type(dato)} er {it:varname} en daglig dato
 hvis datoen er månedlig.
 
 
+{title:Valutakurser ({cmd:fafokr kurs})}
+
+{pstd}
+Lager en variabel med årsgjennomsnittet av valutakursen (NOK per USD eller EUR)
+for årstallet i {it:varname}. Kursen for euro finnes fra 1999.
+
+
 {title:Eksempler}
 
 {pstd}Løpende inntekt i faste 2025-kroner og i G-enheter:{p_end}
@@ -124,6 +143,11 @@ hvis datoen er månedlig.
 {pstd}Pensjon som allerede er i faste 2015-kroner (KPI), i G-enheter:{p_end}
 {phang2}{cmd:. fafokr set pensjon15, year(aar) status(fast) base(2015) deflator(kpi)}{p_end}
 {phang2}{cmd:. fafokr convert pensjon15, index(g_snitt) generate(g_)}{p_end}
+
+{pstd}Inntekt i faste 2025-kroner omregnet til euro, og løpende inntekt i dollar:{p_end}
+{phang2}{cmd:. fafokr convert inntekt, index(kpi) to(2025) currency(eur) generate(eur_)}{p_end}
+{phang2}{cmd:. fafokr convert inntekt, index(nominell) currency(usd) generate(usd_)}{p_end}
+{phang2}{cmd:. fafokr kurs aar, generate(usdkurs) currency(usd)}{p_end}
 
 {pstd}Se status, kilder og G-tabellen:{p_end}
 {phang2}{cmd:. fafokr describe}{p_end}
@@ -141,6 +165,7 @@ hvis datoen er månedlig.
 {synopt:{cmd:r(varlist)}}nye eller erstattede variabler{p_end}
 {synopt:{cmd:r(index)}}indeksen som ble brukt{p_end}
 {synopt:{cmd:r(to)}}måleåret{p_end}
+{synopt:{cmd:r(currency)}}valutaen, hvis {opt currency()} er brukt{p_end}
 {synopt:{cmd:r(kilde)}}kilde og hentedato for indeksen{p_end}
 {synopt:{cmd:r(dir)}}mappen datagrunnlaget ble lest fra{p_end}
 
@@ -149,7 +174,7 @@ hvis datoen er månedlig.
 
 {pstd}
 Fire CSV-filer: {cmd:fafokr_aar.csv} (én rad per år med {cmd:g_snitt},
-{cmd:g_mai}, {cmd:kpi} og {cmd:lonn}), {cmd:fafokr_g.csv} (perioder med G),
+{cmd:g_mai}, {cmd:kpi}, {cmd:lonn}, {cmd:usd} og {cmd:eur}), {cmd:fafokr_g.csv} (perioder med G),
 {cmd:fafokr_kpi_mnd.csv} og {cmd:fafokr_kilder.csv}. Pakken leser fra
 PERSONAL-mappen hvis {cmd:fafokr update} har lagt nyere filer der, og ellers
 fra mappen pakken ble installert i. KPI-årstallene er gjennomsnitt av SSBs
@@ -160,5 +185,5 @@ månedstall og kan avvike med 0,1 fra SSBs avrundede årsgjennomsnitt.
 
 {pstd}
 R-pakken {cmd:fafokr} har de samme funksjonene ({cmd:fk_set()},
-{cmd:fk_convert()}, {cmd:fk_g()}, {cmd:fk_oppdater()}).
+{cmd:fk_convert()}, {cmd:fk_g()}, {cmd:fk_kurs()}, {cmd:fk_oppdater()}).
 {p_end}

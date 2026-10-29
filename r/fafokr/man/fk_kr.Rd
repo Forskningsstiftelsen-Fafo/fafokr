@@ -5,9 +5,26 @@
 \alias{fk_convert}
 \title{Regn om beløp med KPI, lønnsindeks eller grunnbeløpet}
 \usage{
-fk_kr(x, aar, index, to = NULL, status = NULL, base = NULL, deflator = NULL)
+fk_kr(
+  x,
+  aar,
+  index,
+  to = NULL,
+  status = NULL,
+  base = NULL,
+  deflator = NULL,
+  currency = NULL
+)
 
-fk_convert(data, cols, index, to = NULL, prefix = NULL, replace = FALSE)
+fk_convert(
+  data,
+  cols,
+  index,
+  to = NULL,
+  prefix = NULL,
+  replace = FALSE,
+  currency = NULL
+)
 }
 \arguments{
 \item{x}{Numerisk vektor.}
@@ -20,6 +37,11 @@ fk_convert(data, cols, index, to = NULL, prefix = NULL, replace = FALSE)
 
 \item{status, base, deflator}{Status for `x` hvis den ikke er satt med
 [fk_status()] eller [fk_set()].}
+
+\item{currency}{`"usd"` eller `"eur"` for å regne resultatet om fra NOK med
+årsgjennomsnittet av Norges Banks valutakurs. Faste kroner (med `to`)
+bruker kursen i `to`-året; løpende kroner (`index = "nominell"`) bruker
+kursen for hvert år. Kan ikke kombineres med G-enheter.}
 
 \item{data}{En data.frame.}
 

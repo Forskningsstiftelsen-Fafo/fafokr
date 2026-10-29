@@ -2,12 +2,12 @@
 % Please edit documentation in R/oppdater.R
 \name{fk_oppdater}
 \alias{fk_oppdater}
-\title{Hent nye tall for G, KPI og lønnsindeks}
+\title{Hent nye tall for G, KPI, lønnsindeks og valutakurser}
 \usage{
 fk_oppdater(
   mappe = NULL,
   cache = TRUE,
-  serier = c("g", "kpi", "lonn"),
+  serier = c("g", "kpi", "lonn", "valuta"),
   forrige = NULL,
   g_kilde = NULL
 )
@@ -17,7 +17,8 @@ fk_oppdater(
 
 \item{cache}{Skal filene lagres i den lokale cachen? Standard `TRUE`.}
 
-\item{serier}{Hvilke serier som skal hentes: `"g"`, `"kpi"` og/eller `"lonn"`.}
+\item{serier}{Hvilke serier som skal hentes: `"g"`, `"kpi"`, `"lonn"` og/eller
+`"valuta"` (USD og EUR).}
 
 \item{forrige}{Mappe med forrige versjon av filene. Standard er
 datagrunnlaget pakken bruker nå.}
@@ -29,9 +30,10 @@ for testing og når g.nav.no ikke er tilgjengelig).}
 Kildetabellen (usynlig).
 }
 \description{
-Henter grunnbeløpet fra Navs G-API (g.nav.no) og KPI (tabell 03013) og
+Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 03013) og
 lønnsindeksen (tabell 09786, påløpt årslønn, alle lønnstakere) fra SSBs
-statistikkbank via PxWebApi v2. Tallene kontrolleres før de lagres.
+statistikkbank via PxWebApi v2, og årsgjennomsnittet av valutakursene for
+USD og EUR fra Norges Banks åpne API. Tallene kontrolleres før de lagres.
 }
 \details{
 Hvis én serie ikke kan hentes, beholdes de forrige tallene for den serien,

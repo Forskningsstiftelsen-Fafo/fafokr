@@ -1,6 +1,6 @@
 # Hjelpefunksjoner og konstanter som brukes i hele pakken.
-# Merk: norske bokstaver i strenger er skrevet som \u-koder (ø = ø,
-# å = å, æ = æ) slik at kildekoden er ren ASCII og portabel.
+# Merk: norske bokstaver i strenger er skrevet som \u-koder (\u00f8 for ø,
+# \u00e5 for å, \u00e6 for æ) slik at kildekoden er ren ASCII og portabel.
 
 # Filnavnene i datagrunnlaget. Samme filer brukes av Stata-versjonen.
 .fk_filer <- c(
@@ -14,14 +14,20 @@
 .fk_indekser <- c("kpi", "lonn", "g_snitt", "g_mai")
 .fk_g_indekser <- c("g_snitt", "g_mai")
 
+# Valutaer det kan regnes om til (kurs = NOK per enhet, årsgjennomsnitt).
+.fk_valutaer <- c("usd", "eur")
+
 # Hvilken rad i kildetabellen hver indeks hører til.
-.fk_serie_for_indeks <- c(kpi = "kpi", lonn = "lonn", g_snitt = "g", g_mai = "g")
+.fk_serie_for_indeks <- c(kpi = "kpi", lonn = "lonn", g_snitt = "g", g_mai = "g",
+                          usd = "usd", eur = "eur")
 
 .fk_indeksnavn <- c(
   kpi     = "KPI",
   lonn    = "l\u00f8nnsindeks",
   g_snitt = "gj.snittlig G",
-  g_mai   = "G per 1. mai"
+  g_mai   = "G per 1. mai",
+  usd     = "valutakursen for USD",
+  eur     = "valutakursen for EUR"
 )
 
 # Gjør tekst om til små bokstaver uten æ, ø og å.
@@ -62,6 +68,18 @@
   if (!s %in% gyldige) {
     stop("Ukjent indeks \"", indeks, "\". Gyldige verdier: ",
          paste(gyldige, collapse = ", "), ".", call. = FALSE)
+  }
+  s
+}
+
+# Normaliserer valuta: NULL, "" eller "nok" betyr ingen omregning.
+.fk_norm_valuta <- function(valuta) {
+  if (is.null(valuta)) return(NULL)
+  s <- .fk_ascii(valuta)
+  if (length(s) != 1) stop("currency m\u00e5 v\u00e6re \u00e9n verdi.", call. = FALSE)
+  if (s %in% c("", "nok")) return(NULL)
+  if (!s %in% .fk_valutaer) {
+    stop("Ukjent valuta \"", valuta, "\". Gyldige verdier: usd, eur.", call. = FALSE)
   }
   s
 }

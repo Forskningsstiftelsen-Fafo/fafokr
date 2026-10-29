@@ -1,12 +1,13 @@
-*! version 0.1.0  28okt2026  Fafo
+*! version 1.0.0  29okt2026  Fafo
 *! fafokr: kroner, G og indekser. Faste kroner med KPI eller lønnsindeks,
 *! G-enheter og G-justerte kroner med grunnbeløpet i folketrygden.
 *!
 *! Underkommandoer:
 *!   fafokr set      varlist, year() status() [base() deflator() replace]
-*!   fafokr convert  varlist, index() [to() generate() replace]
+*!   fafokr convert  varlist, index() [to() currency() generate() replace]
 *!   fafokr describe [varlist]
 *!   fafokr g        varname, generate() [type(snitt|mai|dato)]
+*!   fafokr kurs     varname, generate() currency(usd|eur)
 *!   fafokr table    [aar|g|kpi_mnd|kilder] [, clear]
 *!   fafokr sources
 *!   fafokr update   , from()
@@ -16,7 +17,7 @@ program define fafokr, rclass
     gettoken sub 0 : 0, parse(" ,")
     local sub = ustrlower(`"`sub'"')
     if `"`sub'"' == "" {
-        di as err "Oppgi en underkommando: set, convert, describe, g, table, sources eller update."
+        di as err "Oppgi en underkommando: set, convert, describe, g, kurs, table, sources eller update."
         exit 198
     }
     if "`sub'" == "set" {
@@ -30,6 +31,9 @@ program define fafokr, rclass
     }
     else if "`sub'" == "g" {
         fafokr_g `0'
+    }
+    else if inlist("`sub'", "kurs", "rate") {
+        fafokr_kurs `0'
     }
     else if inlist("`sub'", "table", "tabell") {
         fafokr_table `0'
@@ -103,7 +107,8 @@ program define fafokr_set, rclass
         if "`gml'" != "" & "`replace'" == "" {
             local gb : char `v'[fafokr_base]
             local gd : char `v'[fafokr_deflator]
-            fafokr__beskriv `gml' "`gb'" "`gd'"
+            local gv : char `v'[fafokr_valuta]
+            fafokr__beskriv `gml' "`gb'" "`gd'" "`gv'"
             di as err "`v' har allerede status (`r(tekst)'). Bruk replace."
             exit 110
         }
@@ -119,6 +124,7 @@ program define fafokr_set, rclass
         char `v'[fafokr_year] `year'
         char `v'[fafokr_base] `base'
         char `v'[fafokr_deflator] `deflator'
+        char `v'[fafokr_valuta]
         char `v'[fafokr_label] `orig'
     }
     fafokr__beskriv `status' "`base'" "`deflator'"
@@ -133,7 +139,7 @@ end
 * ---------------------------------------------------------------------------
 program define fafokr_convert, rclass
     syntax varlist(numeric), Index(string) ///
-        [To(numlist integer max=1) GENerate(name) REPLACE]
+        [To(numlist integer max=1) CURrency(string) GENerate(name) REPLACE]
 
     fafokr__normindex `"`index'"'
     local index `r(index)'
@@ -154,6 +160,17 @@ program define fafokr_convert, rclass
         exit 198
     }
     local gunits = inlist("`index'", "g_snitt", "g_mai") & "`to'" == ""
+    local cur = ustrlower(ustrtrim(`"`currency'"'))
+    if "`cur'" == "nok" local cur
+    if "`cur'" != "" & !inlist("`cur'", "usd", "eur") {
+        di as err `"currency() må være usd eller eur."'
+        exit 198
+    }
+    if "`cur'" != "" & `gunits' {
+        di as err "G-enheter kan ikke regnes om til valuta. Bruk kpi, lonn eller nominell,"
+        di as err "eller G-justerte kroner (g_snitt/g_mai med to())."
+        exit 198
+    }
 
     * Les og kontroller status for hver variabel
     local years
@@ -165,8 +182,14 @@ program define fafokr_convert, rclass
         local b`i' : char `v'[fafokr_base]
         local d`i' : char `v'[fafokr_deflator]
         local l`i' : char `v'[fafokr_label]
+        local c`i' : char `v'[fafokr_valuta]
         if "`s`i''" == "" {
             di as err "`v' har ingen fafokr-status. Bruk {cmd:fafokr set} først."
+            exit 459
+        }
+        if "`c`i''" != "" {
+            local V = strupper("`c`i''")
+            di as err "`v' er allerede i `V'. Regn om NOK-variabelen i stedet."
             exit 459
         }
         capture confirm numeric variable `y`i''
@@ -185,7 +208,7 @@ program define fafokr_convert, rclass
     local years : list uniq years
 
     * Hent indekstabellen, slå opp faste faktorer og legg tabellen i Mata
-    tempname K
+    tempname K C
     preserve
     fafokr__load aar
     local dir `"`r(dir)'"'
@@ -202,10 +225,21 @@ program define fafokr_convert, rclass
             scalar `B`i'' = r(val)
         }
     }
-    mata: fafokr__T = st_data(., "aar kpi lonn g_snitt g_mai")
+    if "`cur'" != "" {
+        fafokr__sjekkserie `cur'
+        if "`to'" != "" {
+            fafokr__oppslag `cur' `to'
+            scalar `C' = r(val)
+        }
+    }
+    mata: fafokr__T = st_data(., "aar kpi lonn g_snitt g_mai usd eur")
     if "`index'" != "nominell" {
         fafokr__kildetekst `index'
         local kilde `"`r(tekst)'"'
+    }
+    if "`cur'" != "" {
+        fafokr__kildetekst `cur'
+        local kilde2 `"`r(tekst)'"'
     }
     restore
 
@@ -213,11 +247,11 @@ program define fafokr_convert, rclass
     local j 0
     foreach Y of local years {
         local ++j
-        foreach s in kpi lonn g_snitt g_mai {
+        foreach s in kpi lonn g_snitt g_mai usd eur {
             tempvar a`j'`s'
             quietly gen double `a`j'`s'' = .
         }
-        mata: fafokr__fyll("`Y'", ("`a`j'kpi'", "`a`j'lonn'", "`a`j'g_snitt'", "`a`j'g_mai'"), fafokr__T)
+        mata: fafokr__fyll("`Y'", ("`a`j'kpi'", "`a`j'lonn'", "`a`j'g_snitt'", "`a`j'g_mai'", "`a`j'usd'", "`a`j'eur'"), fafokr__T)
     }
     capture mata: mata drop fafokr__T
 
@@ -261,6 +295,11 @@ program define fafokr_convert, rclass
             local nb
             local nd `index'
         }
+        * Valuta: faste kroner med kursen i to()-året, løpende kroner med årets kurs
+        if "`cur'" != "" {
+            if "`to'" != "" quietly replace `res' = `res' / scalar(`C')
+            else quietly replace `res' = `res' / `a`j'`cur''
+        }
         quietly count if missing(`res') & !missing(`v')
         local nmiss = r(N)
 
@@ -273,7 +312,7 @@ program define fafokr_convert, rclass
             quietly order `nv`i'', after(`v')
         }
 
-        fafokr__beskriv `ns' "`nb'" "`nd'"
+        fafokr__beskriv `ns' "`nb'" "`nd'" "`cur'"
         local tekst `"`r(tekst)'"'
         local baselab `"`l`i''"'
         if `"`baselab'"' == "" local baselab `v'
@@ -283,6 +322,7 @@ program define fafokr_convert, rclass
         char `nv`i''[fafokr_year] `y`i''
         char `nv`i''[fafokr_base] `nb'
         char `nv`i''[fafokr_deflator] `nd'
+        char `nv`i''[fafokr_valuta] `cur'
         char `nv`i''[fafokr_label] `baselab'
         local nye `nye' `nv`i''
 
@@ -293,10 +333,12 @@ program define fafokr_convert, rclass
         else di ""
     }
     if `"`kilde'"' != "" di as txt "  Kilde: `kilde'"
+    if `"`kilde2'"' != "" di as txt "  Kilde: `kilde2'"
 
     return local varlist `nye'
     return local index `index'
     return local to `to'
+    return local currency `cur'
     return local kilde `"`kilde'"'
     return local dir `"`dir'"'
 end
@@ -319,7 +361,8 @@ program define fafokr_describe, rclass
             local b : char `v'[fafokr_base]
             local d : char `v'[fafokr_deflator]
             local y : char `v'[fafokr_year]
-            fafokr__beskriv `s' "`b'" "`d'"
+            local c : char `v'[fafokr_valuta]
+            fafokr__beskriv `s' "`b'" "`d'" "`c'"
             di as res %-24s abbrev("`v'", 23) as txt `"`r(tekst)'"' _col(60) as res "`y'"
         }
     }
@@ -389,6 +432,37 @@ program define fafokr_g, rclass
 end
 
 * ---------------------------------------------------------------------------
+* fafokr kurs: lag en variabel med valutakurs (NOK per enhet, årssnitt)
+* ---------------------------------------------------------------------------
+program define fafokr_kurs, rclass
+    syntax varname(numeric), GENerate(name) CURrency(string)
+    confirm new variable `generate'
+    local cur = ustrlower(ustrtrim(`"`currency'"'))
+    if !inlist("`cur'", "usd", "eur") {
+        di as err "currency() må være usd eller eur."
+        exit 198
+    }
+    preserve
+    fafokr__load aar
+    local dir `"`r(dir)'"'
+    fafokr__sjekkserie `cur'
+    mata: fafokr__T = st_data(., "aar `cur'")
+    fafokr__kildetekst `cur'
+    local kilde `"`r(tekst)'"'
+    restore
+
+    quietly gen double `generate' = .
+    mata: fafokr__fyll("`varlist'", ("`generate'"), fafokr__T)
+    capture mata: mata drop fafokr__T
+    local V = strupper("`cur'")
+    label variable `generate' "NOK per `V', årsgjennomsnitt (`varlist')"
+    quietly count if missing(`generate') & !missing(`varlist')
+    if r(N) > 0 di as txt "(`r(N)' observasjoner i år uten kurs fikk manglende verdi)"
+    di as txt "  Kilde: `kilde'"
+    return local dir `"`dir'"'
+end
+
+* ---------------------------------------------------------------------------
 * fafokr table: last en tabell inn i minnet
 * ---------------------------------------------------------------------------
 program define fafokr_table, rclass
@@ -411,6 +485,8 @@ program define fafokr_table, rclass
         label variable g_mai "G per 1. mai"
         label variable kpi "KPI (2015=100), årsgjennomsnitt"
         label variable lonn "Lønnsindeks (2010=100), påløpt årslønn"
+        label variable usd "NOK per USD, årsgjennomsnitt"
+        label variable eur "NOK per EUR, årsgjennomsnitt"
     }
     else if "`tab'" == "g" {
         quietly gen double fra = date(fra_dato, "YMD")
@@ -590,7 +666,7 @@ program define fafokr__load, rclass
     quietly import delimited using `"`dir'fafokr_`fil'.csv"', clear varnames(1) ///
         encoding("utf-8") asdouble `sc'
     if "`fil'" == "aar" {
-        foreach s in g_snitt g_mai kpi lonn {
+        foreach s in g_snitt g_mai kpi lonn usd eur {
             capture confirm variable `s'
             if _rc quietly gen double `s' = .
             capture confirm numeric variable `s'
@@ -633,12 +709,14 @@ program define fafokr__navn, rclass
     else if "`serie'" == "lonn" local n "lønnsindeks"
     else if "`serie'" == "g_snitt" local n "gj.snittlig G"
     else if "`serie'" == "g_mai" local n "G per 1. mai"
+    else if "`serie'" == "usd" local n "valutakursen for USD"
+    else if "`serie'" == "eur" local n "valutakursen for EUR"
     else local n "`serie'"
     return local navn `"`n'"'
 end
 
 program define fafokr__beskriv, rclass
-    args status base deflator
+    args status base deflator valuta
     fafokr__navn `deflator'
     local dn `"`r(navn)'"'
     if "`status'" == "lopende" local t "løpende kroner"
@@ -648,6 +726,11 @@ program define fafokr__beskriv, rclass
     }
     else if "`status'" == "g" local t "G-enheter (`dn')"
     else local t "ukjent status"
+    if "`valuta'" != "" {
+        local V = strupper("`valuta'")
+        if "`status'" == "lopende" local t "løpende `V' (årets kurs)"
+        else local t "`t', i `V' (`base'-kurs)"
+    }
     return local tekst `"`t'"'
 end
 

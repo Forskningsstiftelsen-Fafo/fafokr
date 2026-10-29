@@ -2,8 +2,9 @@ v 3
 d fafokr: Kroner, G og indekser i Fafo-stil
 d
 d Gjør om beløp til faste kroner med KPI eller lønnsindeks, til G-enheter
-d eller G-justerte kroner med grunnbeløpet i folketrygden. Indeksene kommer
-d fra Nav (g.nav.no) og SSBs statistikkbank (tabell 03013 og 09786).
+d eller G-justerte kroner med grunnbeløpet i folketrygden, og til USD eller
+d EUR. Tallene kommer fra Nav (g.nav.no), SSBs statistikkbank (tabell 03013
+d og 09786) og Norges Bank (valutakurser).
 d
 d Distribution-Date: 20261029
 f fafokr.ado

@@ -243,3 +243,50 @@
   rownames(aar) <- NULL
   list(aar = aar, url = u, tabell = tab)
 }
+
+# ---- Valutakurser fra Norges Bank -------------------------------------------
+
+# Årsgjennomsnitt av daglige kurser (NOK per enhet) for USD og EUR.
+.fk_url_nb <- "https://data.norges-bank.no/api/data/EXR/A.USD+EUR.NOK.SP?format=csv&locale=en"
+
+# Leser CSV fra Norges Banks API. Tåler byte order mark, semikolon eller komma
+# som skilletegn og desimalkomma (locale=no). Kurser for valutaer som noteres
+# per 100 enheter (UNIT_MULT = 2) regnes om til kurs per enhet.
+.fk_nb_csv <- function(tekst) {
+  tekst <- sub("^\ufeff", "", tekst)
+  linjer <- strsplit(tekst, "\r?\n")[[1]]
+  linjer <- linjer[nzchar(trimws(linjer))]
+  if (length(linjer) < 2) stop("Tomt svar fra Norges Bank.", call. = FALSE)
+  sep <- if (grepl(";", linjer[1], fixed = TRUE)) ";" else ","
+  d <- utils::read.table(text = linjer, sep = sep, header = TRUE, quote = "\"",
+                         colClasses = "character", check.names = FALSE,
+                         comment.char = "", stringsAsFactors = FALSE)
+  mangler <- setdiff(c("BASE_CUR", "TIME_PERIOD", "OBS_VALUE"), names(d))
+  if (length(mangler)) {
+    stop("Svaret fra Norges Bank mangler kolonnene ", paste(mangler, collapse = ", "),
+         ".", call. = FALSE)
+  }
+  kurs <- suppressWarnings(as.numeric(sub(",", ".", d$OBS_VALUE, fixed = TRUE)))
+  mult <- if ("UNIT_MULT" %in% names(d)) suppressWarnings(as.numeric(d$UNIT_MULT)) else 0
+  mult[is.na(mult)] <- 0
+  data.frame(valuta = tolower(d$BASE_CUR), periode = d$TIME_PERIOD,
+             kurs = kurs / 10^mult, stringsAsFactors = FALSE)
+}
+
+.fk_hent_valuta <- function() {
+  d <- .fk_nb_csv(.fk_les_tekst(.fk_url_nb))
+  d <- d[grepl("^[0-9]{4}$", d$periode) & !is.na(d$kurs), , drop = FALSE]
+  d$aar <- as.integer(d$periode)
+  # Bare hele år: et årsgjennomsnitt for inneværende år er ikke ferdig.
+  d <- d[d$aar < as.integer(format(Sys.Date(), "%Y")), , drop = FALSE]
+  if (any(d$kurs <= 0)) stop("Valutakursene har verdier som ikke er positive.", call. = FALSE)
+  ut <- list(url = .fk_url_nb)
+  for (v in .fk_valutaer) {
+    dv <- d[d$valuta == v, , drop = FALSE]
+    if (!nrow(dv)) stop("Fant ikke ", toupper(v), " i svaret fra Norges Bank.", call. = FALSE)
+    if (anyDuplicated(dv$aar)) stop("Flere kurser for samme \u00e5r (", toupper(v), ").", call. = FALSE)
+    dv <- dv[order(dv$aar), , drop = FALSE]
+    ut[[v]] <- stats::setNames(data.frame(dv$aar, dv$kurs), c("aar", v))
+  }
+  ut
+}

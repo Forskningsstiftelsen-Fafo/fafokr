@@ -103,6 +103,7 @@ fk_info <- function(data) {
     if (is.null(m)) return(NULL)
     data.frame(variabel = v, status = m$status, aar = m$aar %||% NA,
                base = m$base %||% NA, deflator = m$deflator %||% NA,
+               valuta = m$valuta %||% NA,
                beskrivelse = .fk_beskriv(m), stringsAsFactors = FALSE)
   })
   rader <- do.call(rbind, rader)
@@ -114,6 +115,14 @@ fk_info <- function(data) {
 }
 
 .fk_beskriv <- function(m) {
+  tekst <- .fk_beskriv_nok(m)
+  if (is.null(m$valuta)) return(tekst)
+  V <- toupper(m$valuta)
+  if (m$status == "lopende") return(sprintf("l\u00f8pende %s (\u00e5rets kurs)", V))
+  sprintf("%s, i %s (%d-kurs)", tekst, V, m$base)
+}
+
+.fk_beskriv_nok <- function(m) {
   switch(m$status,
     lopende = "l\u00f8pende kroner",
     fast = if (m$deflator %in% c("kpi", "lonn")) {
@@ -188,6 +197,28 @@ fk_info <- function(data) {
   list(x = ut, m = .fk_lag_status("g", m$aar, deflator = index))
 }
 
+# Regner et NOK-resultat om til valuta. Løpende kroner bruker kursen for
+# hvert års beløp; faste kroner (og G-justerte kroner) bruker kursen i
+# basisåret, slik at realverdien beholdes.
+.fk_til_valuta <- function(res, aar, valuta) {
+  if (is.null(valuta)) return(res)
+  if (res$m$status == "g") {
+    stop("G-enheter kan ikke regnes om til valuta. Bruk kpi, lonn eller nominell, ",
+         "eller G-justerte kroner (g_snitt/g_mai med to).", call. = FALSE)
+  }
+  kurs <- if (res$m$status == "fast") .fk_I1(valuta, res$m$base) else .fk_I(valuta, aar)
+  res$x <- res$x / kurs
+  res$m$valuta <- valuta
+  res
+}
+
+.fk_sjekk_ikke_valuta <- function(m, navn) {
+  if (!is.null(m$valuta)) {
+    stop(navn, " er allerede i ", toupper(m$valuta),
+         ". Regn om NOK-variabelen i stedet.", call. = FALSE)
+  }
+}
+
 .fk_ny_etikett <- function(etikett, m) {
   paste0(etikett, ", ", .fk_beskriv(m))
 }
@@ -215,6 +246,10 @@ fk_info <- function(data) {
 #' @param to Året beløpene skal uttrykkes i.
 #' @param status,base,deflator Status for `x` hvis den ikke er satt med
 #'   [fk_status()] eller [fk_set()].
+#' @param currency `"usd"` eller `"eur"` for å regne resultatet om fra NOK med
+#'   årsgjennomsnittet av Norges Banks valutakurs. Faste kroner (med `to`)
+#'   bruker kursen i `to`-året; løpende kroner (`index = "nominell"`) bruker
+#'   kursen for hvert år. Kan ikke kombineres med G-enheter.
 #' @return `fk_kr()`: omregnet vektor med ny status. `fk_convert()`: `data` med
 #'   nye eller erstattede kolonner.
 #' @examples
@@ -223,19 +258,23 @@ fk_info <- function(data) {
 #' # Samme beløp i G-enheter
 #' fk_kr(500000, 2010, index = "g_snitt", status = "løpende")
 #' @export
-fk_kr <- function(x, aar, index, to = NULL, status = NULL, base = NULL, deflator = NULL) {
+fk_kr <- function(x, aar, index, to = NULL, status = NULL, base = NULL, deflator = NULL,
+                  currency = NULL) {
   if (!is.numeric(x)) stop("x m\u00e5 v\u00e6re numerisk.", call. = FALSE)
   if (!is.numeric(aar)) stop("aar m\u00e5 v\u00e6re numerisk.", call. = FALSE)
   if (length(aar) == 1) aar <- rep(aar, length(x))
   if (length(aar) != length(x)) stop("aar og x har ulik lengde.", call. = FALSE)
   index <- .fk_norm_indeks(index, tillat_nominell = TRUE)
+  currency <- .fk_norm_valuta(currency)
   m <- if (!is.null(status)) .fk_lag_status(status, NA_character_, base, deflator) else attr(x, "fafokr")
   if (is.null(m)) {
     stop("x har ingen status. Oppgi status (og eventuelt base og deflator), ",
          "eller bruk fk_status()/fk_set() f\u00f8rst.", call. = FALSE)
   }
+  .fk_sjekk_ikke_valuta(m, "x")
   etikett <- m$etikett %||% attr(x, "label")
   res <- .fk_kjerne(as.numeric(x), aar, m, index, to)
+  res <- .fk_til_valuta(res, aar, currency)
   .fk_varsle_mangler(x, res$x, aar, deparse(substitute(x)))
   ut <- res$x
   res$m$etikett <- etikett
@@ -260,10 +299,12 @@ fk_kr <- function(x, aar, index, to = NULL, status = NULL, base = NULL, deflator
 #' @param prefix Prefiks for nye kolonner, f.eks. `"r_"`.
 #' @param replace Erstatt kolonnene i stedet for å lage nye.
 #' @export
-fk_convert <- function(data, cols, index, to = NULL, prefix = NULL, replace = FALSE) {
+fk_convert <- function(data, cols, index, to = NULL, prefix = NULL, replace = FALSE,
+                       currency = NULL) {
   if (!is.data.frame(data)) stop("data m\u00e5 v\u00e6re en data.frame.", call. = FALSE)
   cols <- .fk_kolonnenavn(substitute(cols), parent.frame())
   index <- .fk_norm_indeks(index, tillat_nominell = TRUE)
+  currency <- .fk_norm_valuta(currency)
   if (is.null(prefix) == !replace) {
     stop("Oppgi enten prefix (nye kolonner) eller replace = TRUE.", call. = FALSE)
   }
@@ -272,6 +313,7 @@ fk_convert <- function(data, cols, index, to = NULL, prefix = NULL, replace = FA
   for (v in cols) {
     m <- attr(data[[v]], "fafokr")
     if (is.null(m)) stop(v, " har ingen fafokr-status. Bruk fk_set() f\u00f8rst.", call. = FALSE)
+    .fk_sjekk_ikke_valuta(m, v)
     if (is.na(m$aar) || !m$aar %in% names(data)) {
       stop("\u00c5rsvariabelen for ", v, " (", m$aar, ") finnes ikke i data.", call. = FALSE)
     }
@@ -284,6 +326,7 @@ fk_convert <- function(data, cols, index, to = NULL, prefix = NULL, replace = FA
     m <- attr(x, "fafokr")
     aar <- data[[m$aar]]
     res <- .fk_kjerne(as.numeric(x), aar, m, index, to)
+    res <- .fk_til_valuta(res, aar, currency)
     .fk_varsle_mangler(x, res$x, aar, v)
     ut <- res$x
     res$m$etikett <- m$etikett
@@ -294,6 +337,7 @@ fk_convert <- function(data, cols, index, to = NULL, prefix = NULL, replace = FA
     message(sprintf("  %s -> %s: %s", v, ny, .fk_beskriv(res$m)))
   }
   if (index != "nominell") message("  Kilde: ", .fk_kildetekst(index))
+  if (!is.null(currency)) message("  Kilde: ", .fk_kildetekst(currency))
   data
 }
 
@@ -321,4 +365,19 @@ fk_g <- function(dato) {
 fk_g_aar <- function(aar, type = c("snitt", "mai")) {
   type <- match.arg(type)
   .fk_I(paste0("g_", type), aar)
+}
+
+#' Valutakurs for et år
+#'
+#' Gir årsgjennomsnittet av Norges Banks valutakurs, i NOK per enhet.
+#'
+#' @param aar Årstall.
+#' @param valuta `"usd"` eller `"eur"`.
+#' @return Numerisk vektor.
+#' @examples
+#' \dontrun{fk_kurs(2020:2025, "eur")}
+#' @export
+fk_kurs <- function(aar, valuta = c("usd", "eur")) {
+  valuta <- .fk_norm_valuta(match.arg(.fk_ascii(valuta[1]), .fk_valutaer))
+  .fk_I(valuta, aar)
 }

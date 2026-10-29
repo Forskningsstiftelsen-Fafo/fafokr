@@ -1,8 +1,9 @@
-#' Hent nye tall for G, KPI og lønnsindeks
+#' Hent nye tall for G, KPI, lønnsindeks og valutakurser
 #'
-#' Henter grunnbeløpet fra Navs G-API (g.nav.no) og KPI (tabell 03013) og
+#' Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 03013) og
 #' lønnsindeksen (tabell 09786, påløpt årslønn, alle lønnstakere) fra SSBs
-#' statistikkbank via PxWebApi v2. Tallene kontrolleres før de lagres.
+#' statistikkbank via PxWebApi v2, og årsgjennomsnittet av valutakursene for
+#' USD og EUR fra Norges Banks åpne API. Tallene kontrolleres før de lagres.
 #'
 #' Hvis én serie ikke kan hentes, beholdes de forrige tallene for den serien,
 #' og funksjonen gir en advarsel. De andre seriene oppdateres likevel.
@@ -14,7 +15,8 @@
 #'
 #' @param mappe Ekstra mapper filene skal skrives til (valgfritt).
 #' @param cache Skal filene lagres i den lokale cachen? Standard `TRUE`.
-#' @param serier Hvilke serier som skal hentes: `"g"`, `"kpi"` og/eller `"lonn"`.
+#' @param serier Hvilke serier som skal hentes: `"g"`, `"kpi"`, `"lonn"` og/eller
+#'   `"valuta"` (USD og EUR).
 #' @param forrige Mappe med forrige versjon av filene. Standard er
 #'   datagrunnlaget pakken bruker nå.
 #' @param g_kilde URL eller lokal fil med G i API-formatet (valgfritt; brukes
@@ -26,7 +28,7 @@
 #' fk_oppdater(mappe = "K:/Felles/fafokr")   # også til en delt mappe for Stata
 #' }
 #' @export
-fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn"),
+fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn", "valuta"),
                         forrige = NULL, g_kilde = NULL) {
   serier <- match.arg(serier, several.ok = TRUE)
   gammel <- if (!is.null(forrige)) .fk_les_mappe(forrige) else
@@ -39,6 +41,8 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
   kpi_mnd <- gammel$kpi_mnd %||% data.frame(aar = integer(), mnd = integer(), kpi = numeric())
   kpi_aar <- if (!is.null(gammel)) gammel$aar[!is.na(gammel$aar$kpi), c("aar", "kpi")] else NULL
   lonn_aar <- if (!is.null(gammel)) gammel$aar[!is.na(gammel$aar$lonn), c("aar", "lonn")] else NULL
+  usd_aar <- if (!is.null(gammel)) gammel$aar[!is.na(gammel$aar$usd), c("aar", "usd")] else NULL
+  eur_aar <- if (!is.null(gammel)) gammel$aar[!is.na(gammel$aar$eur), c("aar", "eur")] else NULL
 
   prov <- function(navn, uttrykk) {
     tryCatch(uttrykk, error = function(e) {
@@ -75,8 +79,19 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
     }
   }
 
+  if ("valuta" %in% serier) {
+    message("Henter valutakurser fra Norges Bank ...")
+    v <- prov("valutakursene", .fk_hent_valuta())
+    if (!is.null(v)) {
+      usd_aar <- v$usd
+      eur_aar <- v$eur
+      kilder <- .fk_sett_kilde(kilder, "usd", v$url, "EXR", idag, range(v$usd$aar))
+      kilder <- .fk_sett_kilde(kilder, "eur", v$url, "EXR", idag, range(v$eur$aar))
+    }
+  }
+
   if (is.null(g_aar)) stop("Mangler G, og kunne ikke hente det.", call. = FALSE)
-  aar <- .fk_slaa_sammen(g_aar, kpi_aar, lonn_aar)
+  aar <- .fk_slaa_sammen(g_aar, kpi_aar, lonn_aar, usd_aar, eur_aar)
   .fk_valider(aar, g_perioder)
 
   data <- list(aar = aar, g = g_perioder, kpi_mnd = kpi_mnd, kilder = kilder)
@@ -91,16 +106,18 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
 
 .fk_tom_kilder <- function() {
   data.frame(
-    serie = c("g", "kpi", "lonn"),
+    serie = c("g", "kpi", "lonn", "usd", "eur"),
     beskrivelse = c(
       "Grunnbel\u00f8pet i folketrygden (G), per 1. mai og gjennomsnitt per \u00e5r",
       "Konsumprisindeksen (2015=100), \u00e5rsgjennomsnitt av m\u00e5nedstall",
-      "\u00c5rsl\u00f8nn, p\u00e5l\u00f8pt, alle l\u00f8nnstakere, indeks (2010=100)"
+      "\u00c5rsl\u00f8nn, p\u00e5l\u00f8pt, alle l\u00f8nnstakere, indeks (2010=100)",
+      "Valutakurs, NOK per USD, \u00e5rsgjennomsnitt",
+      "Valutakurs, NOK per EUR, \u00e5rsgjennomsnitt"
     ),
-    kilde = c("Nav, g.nav.no", "SSB", "SSB, nasjonalregnskapet"),
-    tabell = c(NA, "03013", "09786"),
+    kilde = c("Nav, g.nav.no", "SSB", "SSB, nasjonalregnskapet", "Norges Bank", "Norges Bank"),
+    tabell = c(NA, "03013", "09786", "EXR", "EXR"),
     url = NA_character_,
-    basis = c("kroner", "2015=100", "2010=100"),
+    basis = c("kroner", "2015=100", "2010=100", "NOK per USD", "NOK per EUR"),
     hentet = NA_character_,
     forste_aar = NA_integer_,
     siste_aar = NA_integer_,
@@ -123,13 +140,15 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
 }
 
 # Slår sammen årsseriene til én tabell med sammenhengende år.
-.fk_slaa_sammen <- function(g_aar, kpi_aar, lonn_aar) {
-  alle <- c(g_aar$aar, kpi_aar$aar, lonn_aar$aar)
+.fk_slaa_sammen <- function(g_aar, kpi_aar, lonn_aar, usd_aar = NULL, eur_aar = NULL) {
+  alle <- c(g_aar$aar, kpi_aar$aar, lonn_aar$aar, usd_aar$aar, eur_aar$aar)
   aar <- data.frame(aar = seq(min(alle), max(alle)))
   aar$g_snitt <- g_aar$g_snitt[match(aar$aar, g_aar$aar)]
   aar$g_mai <- g_aar$g_mai[match(aar$aar, g_aar$aar)]
   aar$kpi <- if (is.null(kpi_aar)) NA_real_ else kpi_aar$kpi[match(aar$aar, kpi_aar$aar)]
   aar$lonn <- if (is.null(lonn_aar)) NA_real_ else lonn_aar$lonn[match(aar$aar, lonn_aar$aar)]
+  aar$usd <- if (is.null(usd_aar)) NA_real_ else usd_aar$usd[match(aar$aar, usd_aar$aar)]
+  aar$eur <- if (is.null(eur_aar)) NA_real_ else eur_aar$eur[match(aar$aar, eur_aar$aar)]
   aar
 }
 
@@ -137,7 +156,7 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
   if (anyDuplicated(aar$aar) || any(diff(aar$aar) != 1)) {
     stop("\u00c5rstabellen har ikke sammenhengende \u00e5r.", call. = FALSE)
   }
-  for (s in .fk_indekser) {
+  for (s in c(.fk_indekser, .fk_valutaer)) {
     v <- aar[[s]]
     if (any(!is.na(v) & v <= 0)) stop("Serien ", s, " har verdier som ikke er positive.", call. = FALSE)
   }
