@@ -1,4 +1,6 @@
 "serie","beskrivelse","kilde","tabell","url","basis","hentet","forste_aar","siste_aar"
-"g","Grunnbeløpet i folketrygden (G), per 1. mai og gjennomsnitt per år","Nav, g.nav.no",,"https://g.nav.no/api/v1/historikk/grunnbel%C3%B8p","kroner","2026-10-28",1967,2026
-"kpi","Konsumprisindeksen (2015=100), årsgjennomsnitt av månedstall","SSB","03013","https://data.ssb.no/api/pxwebapi/v2/tables/03013/data?lang=en&outputFormat=json-stat2&valueCodes[Konsumgrp]=TOTAL&valueCodes[ContentsCode]=KpiIndMnd&valueCodes[Tid]=*","2015=100","2026-10-28",1979,2025
-"lonn","Årslønn, påløpt, alle lønnstakere, indeks (2010=100)","SSB, nasjonalregnskapet","09786","https://data.ssb.no/api/pxwebapi/v2/tables/09786/data?lang=en&outputFormat=json-stat2&valueCodes[ContentsCode]=ArslonnIndeks&valueCodes[Tid]=*","2010=100","2026-10-28",1970,2025
+"g","Grunnbeløpet i folketrygden (G), per 1. mai og gjennomsnitt per år","Nav, g.nav.no",,"https://g.nav.no/api/v1/historikk/grunnbel%C3%B8p","kroner","2026-10-29",1967,2026
+"kpi","Konsumprisindeksen (2015=100), årsgjennomsnitt av månedstall","SSB","03013","https://data.ssb.no/api/pxwebapi/v2/tables/03013/data?lang=en&outputFormat=json-stat2&valueCodes[Konsumgrp]=TOTAL&valueCodes[ContentsCode]=KpiIndMnd&valueCodes[Tid]=*","2015=100","2026-10-29",1979,2025
+"lonn","Årslønn, påløpt, alle lønnstakere, indeks (2010=100)","SSB, nasjonalregnskapet","09786","https://data.ssb.no/api/pxwebapi/v2/tables/09786/data?lang=en&outputFormat=json-stat2&valueCodes[ContentsCode]=ArslonnIndeks&valueCodes[Tid]=*","2010=100","2026-10-29",1970,2025
+"usd","Valutakurs, NOK per USD, årsgjennomsnitt","Norges Bank","EXR","https://data.norges-bank.no/api/data/EXR/A.USD+EUR.NOK.SP?format=csv&locale=en","NOK per USD","2026-10-29",1960,2025
+"eur","Valutakurs, NOK per EUR, årsgjennomsnitt","Norges Bank","EXR","https://data.norges-bank.no/api/data/EXR/A.USD+EUR.NOK.SP?format=csv&locale=en","NOK per EUR","2026-10-29",1999,2025
