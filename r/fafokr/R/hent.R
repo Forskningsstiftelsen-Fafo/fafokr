@@ -175,47 +175,78 @@
   valg
 }
 
-.fk_hent_kpi <- function() {
-  tab <- "03013"
+# Velger KPI-totalindeksen (indeksnivå, ikke endringer eller vekter) i en
+# SSB-tabell ut fra metadataene, og henter alle månedene.
+.fk_ssb_kpi_mnd <- function(tab) {
   meta <- .fk_ssb_meta(tab)
   dims <- names(meta$koder)
   if (!all(c("ContentsCode", "Tid") %in% dims)) {
-    stop("Tabell 03013 har ikke dimensjonene ContentsCode og Tid.", call. = FALSE)
+    stop("Tabell ", tab, " har ikke dimensjonene ContentsCode og Tid.", call. = FALSE)
   }
-  innhold <- meta$koder$ContentsCode
-  if (!"KpiIndMnd" %in% innhold) {
-    stop("Fant ikke KpiIndMnd i tabell 03013. Tilgjengelig: ",
-         paste(innhold, collapse = ", "), call. = FALSE)
+  lab <- tolower(meta$etiketter$ContentsCode)
+  treff <- grepl("index|indeks", lab) & !grepl("change|rate|weight|endring|vekt", lab)
+  if (sum(treff) > 1) treff <- treff & grepl("2025=100", lab, fixed = TRUE)
+  if (sum(treff) != 1) {
+    stop("Fant ikke \u00e9n entydig indeks i tabell ", tab, ". Etiketter: ",
+         paste(meta$etiketter$ContentsCode, collapse = " | "), call. = FALSE)
   }
-  grp <- setdiff(dims, c("ContentsCode", "Tid"))
   valg <- list()
-  for (d in grp) {
+  for (d in setdiff(dims, c("ContentsCode", "Tid"))) {
     k <- meta$koder[[d]]
-    lab <- tolower(meta$etiketter[[d]])
-    kode <- if ("TOTAL" %in% k) "TOTAL" else k[grepl("all-item|total", lab)][1]
-    if (is.na(kode)) stop("Fant ikke totalindeksen i dimensjonen ", d, ".", call. = FALSE)
+    l <- tolower(meta$etiketter[[d]])
+    kode <- if (length(k) == 1) k else
+      k[k %in% c("00", "TOTAL", "0")][1]
+    if (is.na(kode)) kode <- k[grepl("^(00 )?total|all-item|i alt", l)][1]
+    if (is.na(kode)) {
+      stop("Fant ikke totalindeksen i dimensjonen ", d, " i tabell ", tab, ".", call. = FALSE)
+    }
     valg[[d]] <- kode
   }
-  valg$ContentsCode <- "KpiIndMnd"
+  valg$ContentsCode <- meta$koder$ContentsCode[treff]
   valg$Tid <- "*"
   u <- .fk_ssb_data_url(tab, valg)
   d <- .fk_jsonstat(.fk_les_tekst(u))
   d <- d[!is.na(d$verdi) & grepl("^[0-9]{4}M[0-9]{2}$", d$Tid), , drop = FALSE]
-  if (!nrow(d)) stop("Ingen m\u00e5nedstall for KPI i svaret fra SSB.", call. = FALSE)
-  mnd <- data.frame(
-    aar = as.integer(substr(d$Tid, 1, 4)),
-    mnd = as.integer(substr(d$Tid, 6, 7)),
-    kpi = d$verdi
-  )
-  mnd <- mnd[order(mnd$aar, mnd$mnd), , drop = FALSE]
-  if (any(mnd$kpi <= 0)) stop("KPI har verdier som ikke er positive.", call. = FALSE)
+  if (!nrow(d)) stop("Ingen m\u00e5nedstall for KPI i tabell ", tab, ".", call. = FALSE)
+  if (any(d$verdi <= 0)) stop("KPI i tabell ", tab, " har verdier som ikke er positive.", call. = FALSE)
+  mnd <- data.frame(aar = as.integer(substr(d$Tid, 1, 4)),
+                    mnd = as.integer(substr(d$Tid, 6, 7)), kpi = d$verdi)
+  list(mnd = mnd[order(mnd$aar, mnd$mnd), , drop = FALSE], url = u)
+}
+
+# KPI (2025=100) fra tabell 14700, som starter i 2000. Månedene før 2000
+# hentes fra den historiske serien i tabell 14710 og skjøtes på ved hjelp av
+# overlappet i år 2000, slik at hele serien er på samme nivå som 14700.
+.fk_hent_kpi <- function() {
+  ny <- .fk_ssb_kpi_mnd("14700")
+  hist <- .fk_ssb_kpi_mnd("14710")
+  nm <- ny$mnd
+  hm <- hist$mnd
+  forste <- min(nm$aar)
+  nokkel <- function(d) d$aar * 100L + d$mnd
+  overlapp <- intersect(nokkel(nm[nm$aar == forste, ]), nokkel(hm))
+  if (length(overlapp) < 12) {
+    stop("For lite overlapp mellom tabell 14700 og 14710 i ", forste, ".", call. = FALSE)
+  }
+  faktor <- mean(nm$kpi[match(overlapp, nokkel(nm))]) /
+            mean(hm$kpi[match(overlapp, nokkel(hm))])
+  # Begge tabellene har 2025=100, så faktoren skal være nær 1.
+  if (abs(faktor - 1) > 0.05) {
+    stop("Tabell 14700 og 14710 passer ikke sammen (faktor ", round(faktor, 4), ").",
+         call. = FALSE)
+  }
+  tidlig <- hm[nokkel(hm) < min(nokkel(nm)), , drop = FALSE]
+  tidlig$kpi <- tidlig$kpi * faktor
+  mnd <- rbind(tidlig, nm)
+  rownames(mnd) <- NULL
   # Årsgjennomsnitt bare for hele år.
   antall <- tapply(mnd$kpi, mnd$aar, length)
   snitt <- tapply(mnd$kpi, mnd$aar, mean)
   hele <- names(antall)[antall == 12]
   aar <- data.frame(aar = as.integer(hele), kpi = round(as.numeric(snitt[hele]), 4))
-  rownames(mnd) <- NULL
-  list(mnd = mnd, aar = aar, url = u, tabell = tab)
+  list(mnd = data.frame(aar = mnd$aar, mnd = mnd$mnd, kpi = round(mnd$kpi, 4)),
+       aar = aar, url = paste(ny$url, hist$url, sep = " ; "),
+       tabell = "14700 (f\u00f8r 2000: 14710)", faktor = faktor)
 }
 
 .fk_hent_lonn <- function() {

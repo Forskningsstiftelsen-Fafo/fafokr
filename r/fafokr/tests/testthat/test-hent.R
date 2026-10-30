@@ -20,35 +20,54 @@ test_that("G-data som ikke stiger, avvises", {
 })
 
 test_that("JSON-stat2 leses i både tett og glissen form", {
-  kpi <- fafokr:::.fk_jsonstat(falsk_les_tekst("03013/data"))
-  expect_equal(kpi$Tid[1], "2014M01")
+  kpi <- fafokr:::.fk_jsonstat(falsk_les_tekst("14700/data"))
+  expect_equal(kpi$Tid[1], "2000M01")
   expect_equal(kpi$verdi[kpi$Tid == "2015M06"], 99.95)
   lonn <- fafokr:::.fk_jsonstat(falsk_les_tekst("09786/data"))
   expect_true(is.na(lonn$verdi[lonn$Tid == "2025"]))
   expect_equal(lonn$verdi[lonn$Tid == "2011"], 104)
-  meta <- fafokr:::.fk_jsonstat(falsk_les_tekst("03013/metadata"), med_verdier = FALSE)
-  expect_equal(meta$koder$Konsumgrp, c("TOTAL", "01", "02"))
+  meta <- fafokr:::.fk_jsonstat(falsk_les_tekst("14700/metadata"), med_verdier = FALSE)
+  expect_equal(meta$koder$VareTjenesteGrp, c("00", "01", "02"))
 })
 
-test_that("KPI og lønnsindeks hentes og kontrolleres", {
+test_that("KPI hentes fra 14700 og skjøtes med 14710 før 2000", {
   with_mocked_bindings({
     k <- fafokr:::.fk_hent_kpi()
     l <- fafokr:::.fk_hent_lonn()
   }, .fk_les_tekst = falsk_les_tekst)
-  expect_equal(k$aar$aar, 2014:2025)                # 2026 er ikke et helt år
-  expect_equal(k$aar$kpi, 100 + 3 * (2014:2025 - 2015))
-  expect_equal(nrow(k$mnd), 12 * 12 + 9)
-  expect_match(k$url, "valueCodes\\[Konsumgrp\\]=TOTAL")
-  expect_match(k$url, "valueCodes\\[ContentsCode\\]=KpiIndMnd")
+  expect_equal(k$aar$aar, 1990:2025)                # 2026 er ikke et helt år
+  expect_equal(k$aar$kpi, 100 + 3 * (1990:2025 - 2015), tolerance = 1e-5)
+  expect_equal(k$faktor, 1.003, tolerance = 1e-5)
+  expect_equal(nrow(k$mnd), 36 * 12 + 9)
+  # Fra 2000 er tallene akkurat de i 14700
+  expect_equal(k$mnd$kpi[k$mnd$aar == 2000 & k$mnd$mnd == 1], round(55 - 0.55, 4))
+  expect_match(k$url, "14700/data.*valueCodes\\[VareTjenesteGrp\\]=00")
+  expect_match(k$url, "valueCodes\\[ContentsCode\\]=KPIIndMnd")
+  expect_match(k$url, "14710/data.*valueCodes\\[ContentsCode\\]=KPIHist&")
   expect_equal(l$aar$aar, 2010:2024)
   expect_match(l$url, "ArslonnIndeks")
+})
+
+test_that("KPI-tabeller som ikke passer sammen, avvises", {
+  feil_nivaa <- function(kilde, forsok = 3) {
+    tekst <- falsk_les_tekst(kilde)
+    if (grepl("14710/data", kilde)) {
+      js <- jsonlite::fromJSON(tekst, simplifyVector = FALSE)
+      js$value <- lapply(js$value, function(v) v * 0.5)
+      tekst <- jsonlite::toJSON(js, auto_unbox = TRUE, digits = NA)
+    }
+    tekst
+  }
+  expect_error(with_mocked_bindings(fafokr:::.fk_hent_kpi(), .fk_les_tekst = feil_nivaa),
+               "passer ikke sammen")
 })
 
 test_that("fk_oppdater skriver filer og beholder gamle tall ved feil", {
   mappe <- bruk_testdata()
   expect_true(all(file.exists(file.path(mappe, fafokr:::.fk_filer))))
   k <- fafokr:::.fk_les_mappe(mappe)$kilder
-  expect_equal(k$tabell[k$serie == "kpi"], "03013")
+  expect_equal(k$tabell[k$serie == "kpi"], "14700 (f\u00f8r 2000: 14710)")
+  expect_equal(k$basis[k$serie == "kpi"], "2025=100")
   expect_false(anyNA(k$hentet))
 
   # Ny kjøring der SSB feiler: KPI og lønn skal beholdes.

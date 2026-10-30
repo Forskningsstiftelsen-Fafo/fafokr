@@ -1,6 +1,7 @@
 #' Hent nye tall for G, KPI, lønnsindeks og valutakurser
 #'
-#' Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 03013) og
+#' Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 14700, med
+#' tabell 14710 for månedene før 2000) og
 #' lønnsindeksen (tabell 09786, påløpt årslønn, alle lønnstakere) fra SSBs
 #' statistikkbank via PxWebApi v2, og årsgjennomsnittet av valutakursene for
 #' USD og EUR fra Norges Banks åpne API. Tallene kontrolleres før de lagres.
@@ -62,7 +63,7 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
     }
   }
   if ("kpi" %in% serier) {
-    message("Henter KPI fra SSB (tabell 03013) ...")
+    message("Henter KPI fra SSB (tabell 14700 og 14710) ...")
     k <- prov("KPI", .fk_hent_kpi())
     if (!is.null(k)) {
       kpi_mnd <- k$mnd
@@ -109,15 +110,15 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
     serie = c("g", "kpi", "lonn", "usd", "eur"),
     beskrivelse = c(
       "Grunnbel\u00f8pet i folketrygden (G), per 1. mai og gjennomsnitt per \u00e5r",
-      "Konsumprisindeksen (2015=100), \u00e5rsgjennomsnitt av m\u00e5nedstall",
+      "Konsumprisindeksen (2025=100), \u00e5rsgjennomsnitt av m\u00e5nedstall",
       "\u00c5rsl\u00f8nn, p\u00e5l\u00f8pt, alle l\u00f8nnstakere, indeks (2010=100)",
       "Valutakurs, NOK per USD, \u00e5rsgjennomsnitt",
       "Valutakurs, NOK per EUR, \u00e5rsgjennomsnitt"
     ),
     kilde = c("Nav, g.nav.no", "SSB", "SSB, nasjonalregnskapet", "Norges Bank", "Norges Bank"),
-    tabell = c(NA, "03013", "09786", "EXR", "EXR"),
+    tabell = c(NA, "14700 (f\u00f8r 2000: 14710)", "09786", "EXR", "EXR"),
     url = NA_character_,
-    basis = c("kroner", "2015=100", "2010=100", "NOK per USD", "NOK per EUR"),
+    basis = c("kroner", "2025=100", "2010=100", "NOK per USD", "NOK per EUR"),
     hentet = NA_character_,
     forste_aar = NA_integer_,
     siste_aar = NA_integer_,
@@ -131,6 +132,11 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
     kilder <- rbind(kilder, .fk_tom_kilder()[.fk_tom_kilder()$serie == serie, ])
     i <- nrow(kilder)
   }
+  mal <- .fk_tom_kilder()
+  j <- match(serie, mal$serie)
+  kilder$beskrivelse[i] <- mal$beskrivelse[j]
+  kilder$kilde[i] <- mal$kilde[j]
+  kilder$basis[i] <- mal$basis[j]
   kilder$url[i] <- url
   if (!is.na(tabell)) kilder$tabell[i] <- tabell
   kilder$hentet[i] <- hentet

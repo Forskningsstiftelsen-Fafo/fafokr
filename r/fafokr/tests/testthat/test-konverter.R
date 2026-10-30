@@ -50,8 +50,8 @@ test_that("rundturer gir tilbake utgangspunktet", {
 
 test_that("manglende år gir NA med advarsel, manglende målår gir feil", {
   bruk_testdata()
-  expect_warning(x <- fk_kr(c(1, 1), c(2015, 1990), "kpi", to = 2015, status = "lopende"),
-                 "1990")
+  expect_warning(x <- fk_kr(c(1, 1), c(2015, 1985), "kpi", to = 2015, status = "lopende"),
+                 "1985")
   expect_true(is.na(x[2]))
   expect_error(fk_kr(1, 2015, "kpi", to = 2026, status = "lopende"), "mangler for 2026")
   expect_error(fk_kr(1, 2015, "kpi", status = "lopende"), "Oppgi til hvilket")

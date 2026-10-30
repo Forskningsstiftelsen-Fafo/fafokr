@@ -30,7 +30,8 @@ for testing og når g.nav.no ikke er tilgjengelig).}
 Kildetabellen (usynlig).
 }
 \description{
-Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 03013) og
+Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 14700, med
+tabell 14710 for månedene før 2000) og
 lønnsindeksen (tabell 09786, påløpt årslønn, alle lønnstakere) fra SSBs
 statistikkbank via PxWebApi v2, og årsgjennomsnittet av valutakursene for
 USD og EUR fra Norges Banks åpne API. Tallene kontrolleres før de lagres.
