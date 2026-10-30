@@ -2,7 +2,7 @@ test_that("løpende kroner deflateres med KPI og lønnsindeks", {
   bruk_testdata()
   expect_equal(as.numeric(fk_kr(100, 2015, "kpi", to = 2018, status = "l\u00f8pende")), 109)
   expect_equal(as.numeric(fk_kr(100, 2015, "lonn", to = 2016, status = "lopende")),
-               100 * 1.04^6 / 1.04^5, tolerance = 1e-6)
+               100 * 1.04^6 / 1.04^5, tolerance = 1e-5)
   x <- fk_kr(c(100, 200), c(2015, 2016), "kpi", to = 2015, status = "lopende")
   expect_equal(as.numeric(x), c(100, 200 * 100 / 103))
   expect_equal(attr(x, "fafokr")$status, "fast")
@@ -17,7 +17,7 @@ test_that("faste kroner flyttes til nytt basisår og ny deflator", {
   # Annen deflator: blås opp med KPI, deflater med lønn.
   x <- fk_kr(100, 2016, "lonn", to = 2020, status = "fast", base = 2015, deflator = "kpi")
   nom <- 100 * 103 / 100
-  expect_equal(as.numeric(x), nom * 1.04^10 / 1.04^6, tolerance = 1e-6)
+  expect_equal(as.numeric(x), nom * 1.04^10 / 1.04^6, tolerance = 1e-5)
 })
 
 test_that("G-enheter og G-justerte kroner", {

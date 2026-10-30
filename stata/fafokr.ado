@@ -1,4 +1,4 @@
-*! version 1.0.1  30okt2026  Fafo
+*! version 1.0.2  30okt2026  Fafo
 *! fafokr: kroner, G og indekser. Faste kroner med KPI eller lønnsindeks,
 *! G-enheter og G-justerte kroner med grunnbeløpet i folketrygden.
 *!
@@ -484,7 +484,7 @@ program define fafokr_table, rclass
         label variable g_snitt "Gjennomsnittlig G"
         label variable g_mai "G per 1. mai"
         label variable kpi "KPI (2025=100), årsgjennomsnitt"
-        label variable lonn "Lønnsindeks (2010=100), påløpt årslønn"
+        label variable lonn "Lønnsindeks (2025=100), påløpt årslønn"
         label variable usd "NOK per USD, årsgjennomsnitt"
         label variable eur "NOK per EUR, årsgjennomsnitt"
     }
@@ -734,7 +734,7 @@ program define fafokr__beskriv, rclass
     return local tekst `"`t'"'
 end
 
-* Kort kildetekst for en indeks, f.eks. "SSB tabell 09786, hentet 2026-10-15".
+* Kort kildetekst for en indeks, f.eks. "SSB tabell 14858, hentet 2026-10-15".
 program define fafokr__kildetekst, rclass
     args index
     local serie `index'

@@ -32,7 +32,8 @@ Kildetabellen (usynlig).
 \description{
 Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 14700, med
 tabell 14710 for månedene før 2000) og
-lønnsindeksen (tabell 09786, påløpt årslønn, alle lønnstakere) fra SSBs
+en lønnsindeks (2025=100, beregnet fra påløpt årslønn for alle lønnstakere
+i tabell 14858) fra SSBs
 statistikkbank via PxWebApi v2, og årsgjennomsnittet av valutakursene for
 USD og EUR fra Norges Banks åpne API. Tallene kontrolleres før de lagres.
 }

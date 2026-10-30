@@ -23,14 +23,14 @@ test_that("JSON-stat2 leses i både tett og glissen form", {
   kpi <- fafokr:::.fk_jsonstat(falsk_les_tekst("14700/data"))
   expect_equal(kpi$Tid[1], "2000M01")
   expect_equal(kpi$verdi[kpi$Tid == "2015M06"], 99.95)
-  lonn <- fafokr:::.fk_jsonstat(falsk_les_tekst("09786/data"))
-  expect_true(is.na(lonn$verdi[lonn$Tid == "2025"]))
-  expect_equal(lonn$verdi[lonn$Tid == "2011"], 104)
+  lonn <- fafokr:::.fk_jsonstat(falsk_les_tekst("14858/data"))
+  expect_true(is.na(lonn$verdi[lonn$Tid == "2009"]))
+  expect_equal(lonn$verdi[lonn$Tid == "2011"], 520000)
   meta <- fafokr:::.fk_jsonstat(falsk_les_tekst("14700/metadata"), med_verdier = FALSE)
   expect_equal(meta$koder$VareTjenesteGrp, c("00", "01", "02"))
 })
 
-test_that("KPI hentes fra 14700 og skjøtes med 14710 før 2000", {
+test_that("KPI (14700/14710) og lønnsindeks (14858) hentes og kontrolleres", {
   with_mocked_bindings({
     k <- fafokr:::.fk_hent_kpi()
     l <- fafokr:::.fk_hent_lonn()
@@ -44,8 +44,10 @@ test_that("KPI hentes fra 14700 og skjøtes med 14710 før 2000", {
   expect_match(k$url, "14700/data.*valueCodes\\[VareTjenesteGrp\\]=00")
   expect_match(k$url, "valueCodes\\[ContentsCode\\]=KPIIndMnd")
   expect_match(k$url, "14710/data.*valueCodes\\[ContentsCode\\]=KPIHist&")
-  expect_equal(l$aar$aar, 2010:2024)
-  expect_match(l$url, "ArslonnIndeks")
+  expect_equal(l$aar$aar, 2010:2025)
+  expect_equal(l$aar$lonn[l$aar$aar == 2025], 100)
+  expect_equal(l$aar$lonn, 100 * 1.04^(2010:2025 - 2025), tolerance = 1e-5)
+  expect_match(l$url, "14858/data.*valueCodes\\[ContentsCode\\]=Arslonn&")
 })
 
 test_that("KPI-tabeller som ikke passer sammen, avvises", {
@@ -82,5 +84,29 @@ test_that("fk_oppdater skriver filer og beholder gamle tall ved feil", {
     "KPI"), "l\u00f8nnsindeksen")
   aar <- fafokr:::.fk_les_mappe(mappe)$aar
   expect_equal(aar$kpi[aar$aar == 2020], 115)
-  expect_equal(aar$lonn[aar$aar == 2010], 100)
+  expect_equal(aar$lonn[aar$aar == 2025], 100)
+})
+
+test_that("lønnsindeksen krever basisåret og en entydig serie", {
+  uten_2025 <- function(kilde, forsok = 3) {
+    tekst <- falsk_les_tekst(kilde)
+    if (grepl("14858/data", kilde)) {
+      js <- jsonlite::fromJSON(tekst, simplifyVector = FALSE)
+      js$value[["16"]] <- NULL          # 2025
+      tekst <- jsonlite::toJSON(js, auto_unbox = TRUE, digits = NA)
+    }
+    tekst
+  }
+  expect_error(with_mocked_bindings(fafokr:::.fk_hent_lonn(), .fk_les_tekst = uten_2025),
+               "basis\u00e5ret 2025")
+  to_serier <- function(kilde, forsok = 3) {
+    tekst <- falsk_les_tekst(kilde)
+    if (grepl("14858/metadata", kilde)) {
+      tekst <- sub("Real annual earnings in 2025-prices (NOK)", "Annual earnings, other (NOK)",
+                   tekst, fixed = TRUE)
+    }
+    tekst
+  }
+  expect_error(with_mocked_bindings(fafokr:::.fk_hent_lonn(), .fk_les_tekst = to_serier),
+               "entydig")
 })

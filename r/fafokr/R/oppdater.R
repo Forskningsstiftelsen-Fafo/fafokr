@@ -2,7 +2,8 @@
 #'
 #' Henter grunnbeløpet fra Navs G-API (g.nav.no), KPI (tabell 14700, med
 #' tabell 14710 for månedene før 2000) og
-#' lønnsindeksen (tabell 09786, påløpt årslønn, alle lønnstakere) fra SSBs
+#' en lønnsindeks (2025=100, beregnet fra påløpt årslønn for alle lønnstakere
+#' i tabell 14858) fra SSBs
 #' statistikkbank via PxWebApi v2, og årsgjennomsnittet av valutakursene for
 #' USD og EUR fra Norges Banks åpne API. Tallene kontrolleres før de lagres.
 #'
@@ -72,7 +73,7 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
     }
   }
   if ("lonn" %in% serier) {
-    message("Henter l\u00f8nnsindeksen fra SSB (tabell 09786) ...")
+    message("Henter \u00e5rsl\u00f8nn fra SSB (tabell 14858) ...")
     l <- prov("l\u00f8nnsindeksen", .fk_hent_lonn())
     if (!is.null(l)) {
       lonn_aar <- l$aar
@@ -111,14 +112,14 @@ fk_oppdater <- function(mappe = NULL, cache = TRUE, serier = c("g", "kpi", "lonn
     beskrivelse = c(
       "Grunnbel\u00f8pet i folketrygden (G), per 1. mai og gjennomsnitt per \u00e5r",
       "Konsumprisindeksen (2025=100), \u00e5rsgjennomsnitt av m\u00e5nedstall",
-      "\u00c5rsl\u00f8nn, p\u00e5l\u00f8pt, alle l\u00f8nnstakere, indeks (2010=100)",
+      "\u00c5rsl\u00f8nn, p\u00e5l\u00f8pt, alle l\u00f8nnstakere, indeks (2025=100) beregnet fra kroner",
       "Valutakurs, NOK per USD, \u00e5rsgjennomsnitt",
       "Valutakurs, NOK per EUR, \u00e5rsgjennomsnitt"
     ),
-    kilde = c("Nav, g.nav.no", "SSB", "SSB, nasjonalregnskapet", "Norges Bank", "Norges Bank"),
-    tabell = c(NA, "14700 (f\u00f8r 2000: 14710)", "09786", "EXR", "EXR"),
+    kilde = c("Nav, g.nav.no", "SSB", "SSB", "Norges Bank", "Norges Bank"),
+    tabell = c(NA, "14700 (f\u00f8r 2000: 14710)", "14858", "EXR", "EXR"),
     url = NA_character_,
-    basis = c("kroner", "2025=100", "2010=100", "NOK per USD", "NOK per EUR"),
+    basis = c("kroner", "2025=100", "2025=100", "NOK per USD", "NOK per EUR"),
     hentet = NA_character_,
     forste_aar = NA_integer_,
     siste_aar = NA_integer_,

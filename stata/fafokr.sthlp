@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30okt2026}{...}
+{* *! version 1.0.2  30okt2026}{...}
 {title:Tittel}
 
 {phang}
@@ -53,8 +53,8 @@ omregninger kan kjedes.
 
 {pstd}
 Indeksene kommer fra Navs G-API (g.nav.no) og SSBs statistikkbank (tabell 14700
-for KPI, med den historiske serien i tabell 14710 for årene før 2000, og 09786
-for lønnsindeksen). Valutakursene er årsgjennomsnitt fra Norges
+for KPI, med den historiske serien i tabell 14710 for årene før 2000, og 14858
+for årslønnen som lønnsindeksen beregnes fra). Valutakursene er årsgjennomsnitt fra Norges
 Banks åpne API (datasettet EXR). Pakken har med seg et øyeblikksbilde av
 tabellene. {cmd:fafokr update} henter nyere filer fra en mappe eller URL der
 noen har lagt dem med R-funksjonen {cmd:fk_oppdater()}. Se
@@ -88,8 +88,8 @@ og {cmd:nominell} godtas.
 
 {phang}
 {cmd:index(lonn) to(}{it:år}{cmd:)} Beløpene lønnsjustert til {it:år}-nivå med
-indeksen for påløpt årslønn for alle lønnstakere (nasjonalregnskapet,
-2010=100).
+gjennomsnittlig påløpt årslønn for alle lønnstakere (SSB tabell 14858), gjort
+om til en indeks med 2025=100.
 
 {phang}
 {cmd:index(g_snitt)} G-enheter: beløpet delt på gjennomsnittlig G i året.

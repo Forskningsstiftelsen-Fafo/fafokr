@@ -1,7 +1,7 @@
 Package: fafokr
 Type: Package
 Title: Kroner, G og indekser i Fafo-stil
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: person("Herman", "Kruse", email = "herman@fafo.no", role = c("aut", "cre"))
 Description: Gjør om beløp til faste kroner med konsumprisindeksen (KPI) eller
     lønnsindeksen, til G-enheter eller G-justerte kroner med grunnbeløpet i

@@ -162,18 +162,6 @@
   sprintf("%s/%s/data?lang=%s&outputFormat=json-stat2&%s", .fk_url_ssb, tabell, lang, q)
 }
 
-# Velger koden for dimensjoner med bare én verdi; feiler ellers.
-.fk_enkeltvalg <- function(meta, hopp_over) {
-  andre <- setdiff(names(meta$koder), hopp_over)
-  valg <- list()
-  for (d in andre) {
-    if (length(meta$koder[[d]]) != 1) {
-      stop("Uventet dimensjon \"", d, "\" med flere verdier.", call. = FALSE)
-    }
-    valg[[d]] <- meta$koder[[d]]
-  }
-  valg
-}
 
 # Velger KPI-totalindeksen (indeksnivå, ikke endringer eller vekter) i en
 # SSB-tabell ut fra metadataene, og henter alle månedene.
@@ -249,30 +237,60 @@
        tabell = "14700 (f\u00f8r 2000: 14710)", faktor = faktor)
 }
 
+# Lønnsindeks (2025=100) konstruert fra gjennomsnittlig påløpt årslønn i
+# kroner for alle lønnstakere i tabell 14858. Tabellen har ikke en
+# indeksserie, så indeksen er årslønnen i året delt på årslønnen i 2025.
+.fk_lonn_basisaar <- 2025L
+
 .fk_hent_lonn <- function() {
-  tab <- "09786"
+  tab <- "14858"
   meta <- .fk_ssb_meta(tab)
   if (!all(c("ContentsCode", "Tid") %in% names(meta$koder))) {
-    stop("Tabell 09786 har ikke dimensjonene ContentsCode og Tid.", call. = FALSE)
+    stop("Tabell ", tab, " har ikke dimensjonene ContentsCode og Tid.", call. = FALSE)
   }
+  # Nominell årslønn i kroner: ikke endringstall, ikke realverdier.
   lab <- tolower(meta$etiketter$ContentsCode)
-  treff <- grepl("^annual earnings", lab) & grepl("index", lab)
+  treff <- grepl("annual earnings", lab) &
+    !grepl("real|change|per cent|percent|index|price|constant|fixed", lab)
+  if (sum(treff) > 1) treff <- treff & grepl("(nok)", lab, fixed = TRUE)
   if (sum(treff) != 1) {
-    stop("Fant ikke \u00e9n entydig l\u00f8nnsindeks i tabell 09786. Etiketter: ",
-         paste(meta$etiketter$ContentsCode, collapse = " | "), call. = FALSE)
+    stop("Fant ikke \u00e9n entydig serie for nominell \u00e5rsl\u00f8nn i tabell ", tab,
+         ". Etiketter: ", paste(meta$etiketter$ContentsCode, collapse = " | "), call. = FALSE)
   }
-  valg <- .fk_enkeltvalg(meta, c("ContentsCode", "Tid"))
+  valg <- list()
+  for (d in setdiff(names(meta$koder), c("ContentsCode", "Tid"))) {
+    valg[[d]] <- .fk_totalkode(meta, d, tab)
+  }
   valg$ContentsCode <- meta$koder$ContentsCode[treff]
   valg$Tid <- "*"
   u <- .fk_ssb_data_url(tab, valg)
   d <- .fk_jsonstat(.fk_les_tekst(u))
   d <- d[!is.na(d$verdi) & grepl("^[0-9]{4}$", d$Tid), , drop = FALSE]
-  if (!nrow(d)) stop("Ingen tall for l\u00f8nnsindeksen i svaret fra SSB.", call. = FALSE)
-  aar <- data.frame(aar = as.integer(d$Tid), lonn = d$verdi)
-  aar <- aar[order(aar$aar), , drop = FALSE]
-  if (any(aar$lonn <= 0)) stop("L\u00f8nnsindeksen har verdier som ikke er positive.", call. = FALSE)
+  if (!nrow(d)) stop("Ingen tall for \u00e5rsl\u00f8nn i tabell ", tab, ".", call. = FALSE)
+  kr <- data.frame(aar = as.integer(d$Tid), arslonn = d$verdi)
+  kr <- kr[order(kr$aar), , drop = FALSE]
+  if (any(kr$arslonn <= 0)) stop("\u00c5rsl\u00f8nnen har verdier som ikke er positive.", call. = FALSE)
+  basis <- kr$arslonn[kr$aar == .fk_lonn_basisaar]
+  if (length(basis) != 1) {
+    stop("Tabell ", tab, " mangler \u00e5rsl\u00f8nn for basis\u00e5ret ", .fk_lonn_basisaar, ".",
+         call. = FALSE)
+  }
+  aar <- data.frame(aar = kr$aar, lonn = round(kr$arslonn / basis * 100, 6))
   rownames(aar) <- NULL
   list(aar = aar, url = u, tabell = tab)
+}
+
+# Kode for "alle"/"i alt" i en dimensjon med flere verdier (én verdi tas som den er).
+.fk_totalkode <- function(meta, d, tab) {
+  k <- meta$koder[[d]]
+  if (length(k) == 1) return(k)
+  l <- tolower(meta$etiketter[[d]])
+  kode <- k[k %in% c("00", "0", "TOTAL", "Total", "Alle", "ALLE")][1]
+  if (is.na(kode)) kode <- k[grepl("^(00 )?total|^all|i alt|^alle", l)][1]
+  if (is.na(kode)) {
+    stop("Fant ikke totalen i dimensjonen ", d, " i tabell ", tab, ".", call. = FALSE)
+  }
+  kode
 }
 
 # ---- Valutakurser fra Norges Bank -------------------------------------------

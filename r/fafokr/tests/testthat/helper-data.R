@@ -1,7 +1,8 @@
 # Felles testdata: ekte G-historikk fra Nav og syntetiske SSB-svar.
 # Syntetisk KPI: årsgjennomsnitt = 100 + 3 * (år - 2015). Tabell 14700 har
 # 2000-2026M09; tabell 14710 har 1990-2026M09 på et nivå som er 1,003 lavere.
-# Syntetisk lønnsindeks: 100 * 1.04^(år - 2010), 2010-2024 (2025 mangler).
+# Syntetisk årslønn: 500 000 * 1.04^(år - 2010) kroner, 2010-2025 (2009 mangler),
+# som gir lønnsindeksen 100 * 1.04^(år - 2025).
 # Syntetiske valutakurser: USD = 6 + 0.25 * (år - 2010), EUR = 8 + 0.1 * (år - 1999).
 
 fiks <- function(navn) test_path("fixtures", navn)
@@ -12,8 +13,8 @@ falsk_les_tekst <- function(kilde, forsok = 3) {
     else if (grepl("14700/data", kilde)) fiks("ssb_14700_data.json")
     else if (grepl("14710/metadata", kilde)) fiks("ssb_14710_meta.json")
     else if (grepl("14710/data", kilde)) fiks("ssb_14710_data.json")
-    else if (grepl("09786/metadata", kilde)) fiks("ssb_09786_meta.json")
-    else if (grepl("09786/data", kilde)) fiks("ssb_09786_data.json")
+    else if (grepl("14858/metadata", kilde)) fiks("ssb_14858_meta.json")
+    else if (grepl("14858/data", kilde)) fiks("ssb_14858_data.json")
     else if (grepl("norges-bank", kilde)) fiks("nb_exr_a.csv")
     else stop("Ukjent testkilde: ", kilde)
   paste(readLines(fil, warn = FALSE, encoding = "UTF-8"), collapse = "\n")

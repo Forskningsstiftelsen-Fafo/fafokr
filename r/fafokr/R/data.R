@@ -27,7 +27,7 @@ fk_cache_mappe <- function() {
   if (!all(file.exists(stier))) return(NULL)
   ut <- lapply(stier, .fk_les_csv)
   names(ut) <- names(.fk_filer)
-  # Kildetabellen leses som tekst, slik at tabellnummer som "09786" beholdes.
+  # Kildetabellen leses som tekst, slik at tabellnummer som "03013" beholdes.
   k <- utils::read.csv(stier[["kilder"]], stringsAsFactors = FALSE, fileEncoding = "UTF-8",
                        colClasses = "character", na.strings = c("", "NA"))
   k$forste_aar <- as.integer(k$forste_aar)
